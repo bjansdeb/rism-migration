@@ -14,10 +14,10 @@ def main():
     count = 0
     c_001_values = {}
     array_852_c = {}
-    occurences_852_c = []
     etree.register_namespace("marc", "http://www.loc.gov/MARC21/slim")
     with_indication = etree.iterparse("with_indication_wdp2wave.xml", events={"start", "end"}, tag = "{http://www.loc.gov/MARC21/slim}record")
     fixed_with_indication = open("final_with_indication.xml","w+", encoding= "utf-8")
+    wis_count = 0
 
     # fixed_001 = open("001fixed_wi_wdp2wave.xml","w+", encoding= "utf-8")
     print("launched")
@@ -33,7 +33,7 @@ def main():
 
                 for controlfield in elt.findall("{http://www.loc.gov/MARC21/slim}controlfield"):  
                     if controlfield.get("tag") == "001":
-                        if re.findall("^00000", controlfield.text):
+                        if re.findall("^00000", controlfield.text): 
                             c_001_value = re.sub("^00000", "", controlfield.text)
                         else:
                             c_001_value = controlfield.text
@@ -69,10 +69,13 @@ def main():
                             if subfield.get("code") == "c"  :
                                subfields_852.update({'c' : subfield.text}) 
                         if 'a' in subfields_852 and 'c' in subfields_852:
+                            if "without shelfmark" in subfields_852["c"]:
+                                wis_count += 1
+                                wis = "WIS-" + str(wis_count)
+                                subfields_852["c"] = re.sub("^without shelfmark", wis, subfields_852["c"])                            
                             #datafields.update({"852": subfields_852})
                             #values_852.append(subfields_852["c"])
                             array_852_c.update({c_001_value: subfields_852["c"]})
-                            occurences_852_c.append(subfields_852["c"])
 
                 #array_852_c.update({c_001_value : values_852})
                 c_001_values.update({c_001_value : datafields})
@@ -166,14 +169,11 @@ def main():
                             else :                                
                                 if controlfield.text in array_852_c:
                                     ancien_value = controlfield.text
+                                    
                                     controlfield.text = array_852_c[controlfield.text]
                                     if controlfield.text not in duplicates_852c:
-                                        duplicates_852c.update({controlfield.text : 1}) 
-                                        #ajouter un if else ici en fonction de si le nombre d'occurences de 852c est supérieur à 1 ou non
-                                        if occurences_852_c.count(controlfield.text) == 1:
-                                            controlfield.text = array_852_c[ancien_value]
-                                        else : 
-                                            controlfield.text = array_852_c[ancien_value] + " onderdeel-" + str(duplicates_852c[controlfield.text])
+                                        duplicates_852c.update({controlfield.text : 1})
+                                        controlfield.text = array_852_c[ancien_value] + " onderdeel-" + str(duplicates_852c[controlfield.text])
                                     elif controlfield.text in duplicates_852c and ancien_value in array_852_c:
                                         # key = controlfield.text
                                         duplicates_852c[controlfield.text] +=1
@@ -359,7 +359,9 @@ def main():
                 if re.findall("^00000", c_001_refined):
                     c_001_refined = re.sub("^00000", "", c_001_refined)
                 tag_852_c_value = array_852_c[c_001_refined]
-                new_subfield_a.text = f"This record comes from RISM record no. {c_001_refined} with shelfmark bbc 852c {tag_852_c_value} indicated"
+                if tag_852_c_value.startswith("WIS-"):
+                        tag_852_c_value = "without shelfmark"
+                new_subfield_a.text = f"This record comes from RISM record no. {c_001_refined} with shelfmark bbc 852c {tag_852_c_value} indicated. Set with indication."
                 c_001_refined, tag_852_c_value = "", ""
 
                 """traitement ajout du nouvel identifant en 773 et 774 si correspondant à l'ancien 001_RISM"""
